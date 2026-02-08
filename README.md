@@ -1,98 +1,161 @@
-# Agentic Platform
-A modular repository demonstrating how to build an agentic platform including labs and a deployable sample "agentic platform" to demonstrate how to operationalize agents from multiple open source frameworks as well as Bedrock agents.
+# Agentic Platform on AWS
 
-## Project status
-This sample is active
+A production-ready platform for deploying agentic AI systems on AWS. This repository is the companion code for the Udemy course **"Building Production Agentic AI Platforms on AWS"**.
 
-# Architecture
+![Platform Architecture](media/highlevel-architecture.png)
 
-This repository provides **two deployment architectures** to suit different operational preferences:
+## What You'll Build
 
-## 1. EKS-Based Architecture (Full Control)
-![High Level Architecture](media/highlevel-architecture.png)
+This platform demonstrates how to operationalize AI agents at scale:
 
-The EKS deployment gives you complete control over the infrastructure. The platform is built on EKS and uses a variety of AWS services to deploy 10+ agentic systems demonstrating how everything works together. It's instrumented with telemetry and demonstrates operational considerations when deploying agents. Code is written in an abstracted/modular way to make it easy to switch the underlying infrastructure components to suit your needs.
+- **Multiple Agent Types**: Chat, RAG, Jira integration, and more
+- **Gateway Pattern**: LLM Gateway, Memory Gateway, Retrieval Gateway
+- **Production Infrastructure**: EKS, Cognito, Aurora PostgreSQL, OpenSearch
+- **Observability**: OpenTelemetry, X-Ray traces, CloudWatch metrics
+- **Security**: IRSA, JWT authentication, least-privilege access
 
-### Agent Process Architecture
-![Agent Process Architecture](media/agent-design.png)
+## Prerequisites
 
-Each agent runs as a FastAPI server sharing a core package which contains types and client abstractions (like LLM API provider). APIs are authenticated using Cognito through a middleware layer that's simple to swap out for your own IDP. 
+Before starting, ensure you have:
 
-The agents themselves do not have IAM roles attached to them. Instead they connect to AWS resources through microservices like the LLM Gateway, Memory Gateway, and Retrieval Gateway (which do have IAM roles through IRSA). Those requests are authenticated by passing JWT tokens between each request. Each pod running in EKS is authenticated using oAuth regardless of whether the request was service <> service or user <> service by validating tokens against the IDP's public cert.
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Python | 3.12+ | Platform code uses modern Python features |
+| Docker Desktop | Latest | Local development services |
+| AWS Account | With Bedrock access | Model inference (Claude, etc.) |
+| Git | Latest | Clone this repository |
+| uv | Latest | Fast Python package manager |
 
-Telemetry information is collected using open telemetry collectors and pushed to X-Ray for traces, CloudWatch for metrics, and OpenSearch for logs. An agent uses the observability facade (in the common package) which is pre-configured to send to our open telemetry endpoints. The OTEL collectors then push the telemetry data to any endpoint that supports open telemetry protocol (OTLP). This makes it easy to switch vendors or different services. Anything that supports OTLP will work.
+## Quick Start (Local Development)
 
-## 2. AgentCore Architecture (Managed Service)
-![AgentCore Architecture](media/agentcore-arch.png)
+### 1. Clone the Repository
 
-For those who prefer a more managed approach, we provide a separate deployment stack that leverages **Amazon Bedrock AgentCore** primitives. This architecture uses AWS-managed services to handle agent orchestration, reducing operational overhead while maintaining the same agent capabilities.
+```bash
+git clone https://github.com/rayl15/agentic-platform-aws.git
+cd agentic-platform-aws
+```
 
-AgentCore provides:
-- **Managed agent runtime**: No need to manage EKS clusters or container orchestration
-- **Built-in integrations**: Native connections to Bedrock models, Knowledge Bases, and AWS services
-- **Simplified deployment**: Deploy agents as Lambda functions or containers with minimal infrastructure
-- **Automatic scaling**: Serverless scaling based on demand
+### 2. Start Local Services
 
-Both architectures share the same core agent code and patterns, allowing you to choose the deployment model that best fits your operational requirements.
+```bash
+docker compose up -d
+```
 
-# Getting Started
+This starts:
+- **PostgreSQL** (port 5432) - Memory Gateway database with pgvector
+- **Redis** (port 6379) - Caching and rate limiting
+- **LiteLLM** (port 4000) - LLM Gateway for model routing
 
-## Quick Start
-1. Clone this repository
-2. Follow the deployment guide in [DEPLOYMENT.md](DEPLOYMENT.md) to set up the infrastructure
-3. Explore the hands-on labs in the `labs/` directory
+### 3. Install Dependencies
+
+```bash
+make install
+```
+
+### 4. Configure Environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set your AWS region (ensure Bedrock is enabled):
+```
+AWS_REGION=us-east-1
+```
+
+### 5. Run Your First Agent
+
+```bash
+make dev agentic_chat
+```
+
+### 6. Test It
+
+```bash
+curl -X POST http://localhost:8080/invoke \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello, who are you?"}'
+```
+
+You should see a JSON response from the agent.
+
+## Project Structure
+
+```
+├── src/
+│   ├── agents/              # Individual agent implementations
+│   │   ├── agentic_chat/    # Basic conversational agent
+│   │   ├── agentic_rag/     # RAG-powered agent
+│   │   └── jira_agent/      # Jira integration agent
+│   ├── services/            # Gateway microservices
+│   │   ├── llm_gateway/     # Routes LLM requests to providers
+│   │   ├── memory_gateway/  # Conversation history & embeddings
+│   │   └── retrieval_gateway/ # Knowledge base queries
+│   └── agentic_platform/    # Shared core library
+├── infrastructure/          # Terraform modules for AWS deployment
+├── labs/                    # Hands-on learning modules
+└── docker-compose.yaml      # Local development services
+```
+
+## Architecture
+
+### Agent Design Pattern
+
+![Agent Architecture](media/agent-design.png)
+
+Each agent runs as an independent FastAPI server that:
+- Connects to gateways (LLM, Memory, Retrieval) via authenticated requests
+- Uses a shared core library for consistent patterns
+- Emits telemetry via OpenTelemetry
+
+### Gateway Pattern Benefits
+
+- **Abstraction**: Agents don't know about underlying providers
+- **Security**: Gateways hold IAM roles, not agents
+- **Flexibility**: Swap providers without changing agent code
+- **Observability**: Centralized logging and metrics
 
 ## Labs
-There are 5 progressive modules that increase in complexity, going from the basics to operational considerations when running an agent platform at scale:
+
+Five progressive modules to deepen your understanding:
 
 1. **Module 1**: Prompt Engineering & Evaluation
-2. **Module 2**: Common Agentic Patterns  
+2. **Module 2**: Common Agentic Patterns
 3. **Module 3**: Building Agentic Applications
-4. **Module 4**: Advanced Agentic Concepts: Multi-Agent, MCP, AgentCore Tools
+4. **Module 4**: Advanced Concepts (Multi-Agent, MCP, AgentCore)
 5. **Module 5**: Deployment and Infrastructure
 
-Only module 5 requires the agent platform to be deployed. See [labs/README.md](labs/README.md) for detailed lab instructions.
-
-To run labs locally:
+Run labs locally:
 ```bash
-# Install dependencies
-uv sync 
-
-# Start Jupyter Lab
 uv run jupyter lab
 ```
 
-# Deployment
+## AWS Deployment
 
-**Important Notice:** This project deploys resources in your AWS environment using Terraform. You will incur costs for the AWS resources used.
+For production deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
-For complete deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md). We provide both:
-- **Automated bootstrap** (recommended): Uses CloudFormation templates to set up everything automatically
-- **Manual deployment**: Step-by-step instructions for custom deployments
+**Note**: Deploying to AWS will incur costs. The infrastructure includes EKS, Aurora, OpenSearch, and other services.
 
-## Security
-Make sure to run security scans if making changes to the code:
-* [Checkov](https://www.checkov.io/2.Basics/Installing%20Checkov.html)
-* [Bandit](https://bandit.readthedocs.io/en/latest/)
-* [Gitleaks](https://github.com/gitleaks/gitleaks)
+## Course
 
-**Suppressed Warnings**: There are warnings suppressed in the codebase. Review these prior to using any code in your environment.
+This repository accompanies the Udemy course **"Building Production Agentic AI Platforms on AWS"**.
 
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
+The course covers:
+- Setting up your local development environment
+- Understanding the platform architecture
+- Building agents with different frameworks (Strands, LangGraph, CrewAI)
+- Deploying to production on AWS
+- Monitoring and observability
+- Security best practices
 
 ## Contributing
-We are open to contributions and this project is actively being worked on. Items on our roadmap include:
-1. Making deployment easier through a bootstrap terraform module
-2. Cleaning up deployments with a more structured approach to GitOps
-3. Adding additional labs on more advanced agent topics
-4. Building a test harness & eval suite that runs against the code base
-5. Adding more agent examples from the labs into the sample platform
 
-## Authors and acknowledgment
-* Tanner McRae
-* Randy DeFauw
-* James Levine
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-This library is licensed under the MIT-0 License. See the LICENSE file.
+This project is licensed under the MIT-0 License. See [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+This project builds upon patterns and practices from the AWS community. Special thanks to the original contributors at AWS for the foundational architecture.

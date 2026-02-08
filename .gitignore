@@ -202,3 +202,9 @@ aws-overlay-values.yaml
 
 # Ignore Cline memory bank
 memory-bank/
+
+# Course content (video production - private)
+course/
+
+# Claude Code instructions (private)
+.claude/
