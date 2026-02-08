@@ -2,7 +2,7 @@ Parameters:
   RepoUrl:
     Type: String
     Description: The URL of the repo that the CodeBuild project will clone.
-    Default: "https://github.com/aws-samples/sample-agentic-platform"
+    Default: "https://github.com/rayl15/agentic-platform-aws"
 
   RepoBranchName:
     Type: String
@@ -11,7 +11,7 @@ Parameters:
 
   TerraformPath:
     Type: String
-    Default: sample-agentic-platform/infrastructure/stacks/platform-eks
+    Default: agentic-platform-aws/infrastructure/stacks/platform-eks
     Description: Path to the Terraform code
 
   FederatedRoleName:

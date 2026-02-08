@@ -34,8 +34,8 @@ This guide covers deploying the sample agentic platform to AWS. The platform use
 
 Clone the repository:
 ```bash
-git clone https://github.com/aws-samples/sample-agentic-platform.git
-cd sample-agentic-platform
+git clone https://github.com/rayl15/agentic-platform-aws.git
+cd agentic-platform-aws
 ```
 
 ## Deployment Options
@@ -44,7 +44,7 @@ cd sample-agentic-platform
 
 Use the automated bootstrap for production deployments. This approach deploys infrastructure from within the VPC for security and keeps the EKS cluster private.
 
-**Note:** This option is currently Work In Progress (WIP). If you encounter any bugs or blockers please create an issue: https://github.com/aws-samples/sample-agentic-platform/issues
+**Note:** This option is currently Work In Progress (WIP). If you encounter any bugs or blockers please create an issue: https://github.com/rayl15/agentic-platform-aws/issues
 
 ```bash
 # Follow the bootstrap deployment guide

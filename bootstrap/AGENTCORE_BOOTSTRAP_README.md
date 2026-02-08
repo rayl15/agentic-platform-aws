@@ -25,7 +25,7 @@ We've intentionally left out the CI/CD role creation in the bootstrap template t
 
 #### Deploying from computer
 
-To deploy from your computer, run the following command in the sample-agentic-platform/bootstrap directory. Make sure to replace your AdminRoleName parameter with a role that can be used to adminster the KMS if selecting. Typically you'll want this to be the same role as the one you're assuming to deploy the CFN stack.
+To deploy from your computer, run the following command in the agentic-platform-aws/bootstrap directory. Make sure to replace your AdminRoleName parameter with a role that can be used to adminster the KMS if selecting. Typically you'll want this to be the same role as the one you're assuming to deploy the CFN stack.
 
 ```bash
 aws cloudformation create-stack \

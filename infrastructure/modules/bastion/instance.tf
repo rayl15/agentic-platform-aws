@@ -110,7 +110,7 @@ resource "aws_instance" "bastion" {
     
 
     # Git clone the sample repository
-    su - ubuntu -c "git clone https://github.com/aws-samples/sample-agentic-platform.git"
+    su - ubuntu -c "git clone https://github.com/rayl15/agentic-platform-aws.git"
     # Create a simple script to run code-server and kubectl proxy
     cat > /home/ubuntu/start-code-server.sh << 'EOL'
     #!/bin/bash

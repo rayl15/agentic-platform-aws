@@ -99,9 +99,9 @@ Main EKS platform bootstrap. Key parameters:
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `RepoUrl` | Git repo URL | `https://github.com/aws-samples/sample-agentic-platform` |
+| `RepoUrl` | Git repo URL | `https://github.com/rayl15/agentic-platform-aws` |
 | `RepoBranchName` | Branch to deploy | `main` |
-| `TerraformPath` | Path to Terraform | `sample-agentic-platform/infrastructure/stacks/platform-eks` |
+| `TerraformPath` | Path to Terraform | `agentic-platform-aws/infrastructure/stacks/platform-eks` |
 | `FederatedRoleName` | Role for EKS access | Required |
 | `CICDRoleName` | Role for CodeBuild | Required |
 | `UseKMS` | Enable KMS encryption | `false` |

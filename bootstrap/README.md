@@ -59,7 +59,7 @@ aws cloudformation create-stack \
 
 #### Deploying from Computer
 
-To deploy from your computer, run the following command in the sample-agentic-platform/bootstrap directory. Make sure to replace your FederatedRoleName parameter with the role you're using.
+To deploy from your computer, run the following command in the agentic-platform-aws/bootstrap directory. Make sure to replace your FederatedRoleName parameter with the role you're using.
 
 ```bash
 aws cloudformation create-stack \
@@ -191,11 +191,11 @@ After the bootstrap stack is deployed, you need to configure additional admin ro
     Within the CodeBuild UI for your build, after clicking into edit, find and expand the "Additional configuration" section
     Scroll down and find the "Environment Variables"
     Edit the value for "REPO_URL" to be your forked repo for example:
-      CURRENT VALUE:https://github.com/aws-samples/sample-agentic-platform
+      CURRENT VALUE:https://github.com/rayl15/agentic-platform-aws
       YOUR VALUE:  https://github.com/< YOUR ORG or YOUR PERSONAL GITHUB USER ID >/< NAME OF THE REPO YOU JUST CREATED >
     Note: You do not need the ".git" at the end of the URL
     Edit the value for "TF_PATH" to be your path for example:
-      CURRENT VALUE: sample-agentic-platform/infrastructure/stacks/platform-eks
+      CURRENT VALUE: agentic-platform-aws/infrastructure/stacks/platform-eks
       YOU VALUE: < NAME OF THE REPO YOU JUST CREATED >/infrastructure/stacks/platform-eks
       
 
