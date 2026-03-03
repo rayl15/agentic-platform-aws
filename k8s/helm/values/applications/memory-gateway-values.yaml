@@ -1,0 +1,60 @@
+# Default values for memory-gateway.
+# This is a YAML-formatted file.
+
+# Specify the namespace where this service will be deployed
+# Leave empty to use the namespace specified in the helm command
+namespace: "default"
+
+# Replica count for scaling
+replicaCount: 1
+
+# These values will be pulled from an overlay file. 
+aws:
+  region: ""
+  account: ""
+
+image:
+  repository: "agentic-platform-memory-gateway"
+  tag: latest
+  pullPolicy: Always
+
+nameOverride: "memory-gateway"
+fullnameOverride: "memory-gateway"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080 # had to change port value from 8000 to 8080 to match Dockerfile
+
+env:
+  - name: PYTHONPATH
+    value: /app
+
+# Resource allocation
+resources:
+  requests:
+    cpu: 100m      # 0.1 CPU core (10% of a core)
+    memory: 256Mi  # 256 megabytes
+  limits:
+    memory: 512Mi  # 512 megabytes
+
+# Ingress configuration
+ingress:
+  enabled: true
+  path: "/memory-gateway"
+
+# Service account for permissions
+serviceAccount:
+  name: "memory-gateway-sa"
+  create: true
+  irsaConfigKey: MEMORY_GATEWAY_ROLE_ARN
+
+# Configuration defaults that will be added to the configmap
+# Provider: bedrock_agentcore or postgres
+configDefaults:
+  MEMORY_PROVIDER: "bedrock_agentcore"
+
+
+# Agent secret configuration for external secrets
+agentSecret:
+  configKey: "AGENT_LITELLM_SECRET_ARN"

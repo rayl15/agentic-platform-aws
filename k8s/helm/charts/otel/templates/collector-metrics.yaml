@@ -1,0 +1,37 @@
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: metrics
+  namespace: {{ .Values.namespace }}
+spec:
+  mode: daemonset
+  serviceAccount: {{ .Values.serviceAccount.name }}
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    
+    processors:
+      batch: {}
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 1000
+      resourcedetection:
+        detectors: [eks]
+    
+    exporters:
+      awsemf:
+        region: {{ .Values.region }}
+        namespace: EKS/ContainerInsights
+        log_group_name: /aws/containerinsights/{{ .Values.clusterName }}/performance
+    
+    service:
+      pipelines:
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, batch, resourcedetection]
+          exporters: [awsemf]

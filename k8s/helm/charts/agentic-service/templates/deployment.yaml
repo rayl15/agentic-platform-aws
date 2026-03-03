@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "app.name" . }}
+  namespace: {{ include "app.namespace" . }}
+  labels:
+    app: {{ include "app.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app: {{ include "app.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "app.name" . }}
+      annotations:
+        timestamp: "{{ now | unixEpoch }}"
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ include "app.image" . }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: {{ .Values.service.targetPort | default 8080 }}
+          envFrom:
+            - secretRef:
+                name: {{ include "app.name" . }}-agent-secret
+            - configMapRef:
+                name: {{ include "app.name" . }}-config
+            - configMapRef:
+                name: agentic-platform-config
+          env:
+            - name: PYTHONPATH
+              value: /app
+          # Simple health checks that work reliably
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.service.targetPort | default 8080 }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.service.targetPort | default 8080 }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }} 

@@ -1,0 +1,14 @@
+boto3
+fastapi
+uvicorn
+pydantic
+requests
+pyjwt
+cryptography
+sqlalchemy
+psycopg2-binary
+pgvector
+python-dotenv
+httpx
+bedrock-agentcore
+openai

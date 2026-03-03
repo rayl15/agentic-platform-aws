@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "litellm.fullname" . }}
+  namespace: {{ include "litellm.namespace" . }}
+  labels:
+    app: {{ include "litellm.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app: {{ include "litellm.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "litellm.name" . }}
+      annotations:
+        timestamp: "{{ now | unixEpoch }}"
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      initContainers:
+        - name: db-init
+          image: postgres:16-alpine
+          envFrom:
+            - secretRef:
+                name: litellm-secret
+            - configMapRef:
+                name: agentic-platform-config
+          env:
+            - name: PGHOST
+              value: "$(PG_WRITER_ENDPOINT)"
+            - name: PGPORT
+              value: "$(PG_PORT)"
+            - name: PGUSER
+              value: "postgres"
+            - name: PGDATABASE
+              value: "postgres"
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-master-secret
+                  key: password
+          command:
+            - sh
+            - -c
+            - |
+              echo 'Setting up LiteLLM database...'
+              
+              # Create database if it doesn't exist
+              psql -c "CREATE DATABASE litellm_db;" || echo 'Database already exists'
+              
+              # Create user if it doesn't exist
+              psql -c "CREATE USER litellm WITH PASSWORD '$POSTGRES_PASSWORD';" || echo 'User already exists'
+              
+              # Grant permissions
+              psql -c "GRANT ALL PRIVILEGES ON DATABASE litellm_db TO litellm;"
+              psql -d litellm_db -c "GRANT ALL ON SCHEMA public TO litellm;"
+              psql -d litellm_db -c "GRANT ALL ON ALL TABLES IN SCHEMA public TO litellm;"
+              psql -d litellm_db -c "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO litellm;"
+              psql -d litellm_db -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO litellm;"
+              psql -d litellm_db -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO litellm;"
+              
+              echo 'Database setup complete'
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: {{ .Values.service.targetPort | default 4000 }}
+          envFrom:
+            - secretRef:
+                name: litellm-secret
+            - configMapRef:
+                name: agentic-platform-config
+
+          # We need to modify the root path b/c ALB doesn't support re-write.
+          env:
+            - name: SERVER_ROOT_PATH
+              value: "/api/litellm"
+          volumeMounts:
+            - name: config-volume
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+          # HTTP health checks using the correct LiteLLM endpoint
+          livenessProbe:
+            httpGet:
+              path: /health/liveliness
+              port: {{ .Values.service.targetPort | default 4000 }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/liveliness
+              port: {{ .Values.service.targetPort | default 4000 }}
+            initialDelaySeconds: 60  # Increased from 5s to allow Prisma generation to complete
+            periodSeconds: 10        # Increased from 5s to reduce probe frequency
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          args:
+            - "--config"
+            - "/app/config.yaml"
+            - "--port"
+            - "{{ .Values.service.targetPort | default 4000 }}"
+      volumes:
+        - name: config-volume
+          configMap:
+            name: {{ include "litellm.fullname" . }}-config

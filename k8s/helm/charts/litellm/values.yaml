@@ -1,0 +1,46 @@
+# Default values for litellm.
+# This is a YAML-formatted file.
+
+# Specify the namespace where this service will be deployed
+# Leave empty to use the namespace specified in the helm command
+namespace: "default"
+
+# Replica count for scaling
+replicaCount: 1
+
+# Container image
+image:
+  repository: "ghcr.io/berriai/litellm"
+  tag: "main-latest"
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 4000
+
+# Resource allocation
+resources:
+  requests:
+    cpu: 100m      # 0.1 CPU core (10% of a core)
+    memory: 512Mi  # 512 megabytes (increased from 256Mi)
+  limits:
+    memory: 1Gi    # 1 gigabyte (increased from 512Mi)
+
+# Ingress configuration
+ingress:
+  enabled: true
+  path: "/litellm"  # This will be prefixed with /api in the template
+
+# Service account for permissions. Irsa role is pulled from the config map created in terraform and retrieved in the _helpers.tpl file.
+serviceAccount:
+  name: "litellm-sa"
+  create: true
+
+# LiteLLM configuration
+litellm:
+  masterKey: ""  # Will be generated and stored in AWS Secrets Manager
+  ui: true

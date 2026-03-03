@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'GitHub Actions OIDC integration for ECR push operations'
+
+Conditions:
+  HasRepositoryPrefix: !Not [!Equals [!Ref ECRRepositoryPrefix, '']]
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Description: GitHub organization name
+  
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository name
+  
+  ECRRepositoryPrefix:
+    Type: String
+    Description: Prefix for ECR roles (DO change unless you change the build-container.sh script)
+    Default: "agentic-platform"
+
+Resources:
+  # GitHub OIDC Provider
+  GitHubOIDCProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
+
+  # IAM Role for GitHub Actions
+  GitHubActionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOIDCProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                'token.actions.githubusercontent.com:aud': sts.amazonaws.com
+              StringLike:
+                'token.actions.githubusercontent.com:sub': 
+                  - !Sub 'repo:${GitHubOrg}/${GitHubRepo}:ref:refs/heads/main'
+                  - !Sub 'repo:${GitHubOrg}/${GitHubRepo}:ref:refs/heads/develop'
+                  - !Sub 'repo:${GitHubOrg}/${GitHubRepo}:ref:refs/tags/*'
+                  - !Sub 'repo:${GitHubOrg}/${GitHubRepo}:pull_request'
+      ManagedPolicyArns:
+        - !Ref ECRPushPolicy
+
+  # IAM Policy for ECR operations
+  ECRPushPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W13
+            reason: "ecr:GetAuthorizationToken requires wildcard resource - this is for authentication only, repo access is locked down to our prefix"
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - ecr:GetAuthorizationToken
+            Resource: '*'
+          - Effect: Allow
+            Action:
+              - ecr:CreateRepository
+              - ecr:DescribeRepositories
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+              - ecr:InitiateLayerUpload
+              - ecr:UploadLayerPart
+              - ecr:CompleteLayerUpload
+              - ecr:PutImage
+            Resource: !If
+              - HasRepositoryPrefix
+              - !Sub 'arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ECRRepositoryPrefix}*'
+              - !Sub 'arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${GitHubRepo}*'
+
+Outputs:
+  GitHubActionsRoleArn:
+    Description: ARN of the IAM role for GitHub Actions
+    Value: !GetAtt GitHubActionsRole.Arn
+  
+  GitHubActionsRoleName:
+    Description: Name of the IAM role for GitHub Actions
+    Value: !Ref GitHubActionsRole

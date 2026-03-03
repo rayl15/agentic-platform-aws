@@ -1,0 +1,57 @@
+# Default values for retrieval-gateway.
+# This is a YAML-formatted file.
+
+# Specify the namespace where this service will be deployed
+# Leave empty to use the namespace specified in the helm command
+namespace: "default"
+
+# Replica count for scaling
+replicaCount: 1
+
+# These values will be pulled from an overlay file. 
+aws:
+  region: ""
+  account: ""
+
+image:
+  repository: "agentic-platform-retrieval-gateway"
+  tag: latest
+  pullPolicy: Always
+
+nameOverride: "retrieval-gateway"
+fullnameOverride: "retrieval-gateway"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080 # had to change port value from 8000 to 8080 to match Dockerfile
+
+env:
+  - name: PYTHONPATH
+    value: /app
+
+# Resource allocation
+resources:
+  requests:
+    cpu: 100m      # 0.1 CPU core (10% of a core)
+    memory: 256Mi  # 256 megabytes
+  limits:
+    memory: 512Mi  # 512 megabytes
+
+# Ingress configuration
+ingress:
+  enabled: true
+  path: "/retrieval-gateway"
+
+# Service account for permissions
+serviceAccount:
+  name: "retrieval-gateway-sa"
+  create: true
+  irsaRoleName: "retrieval-gateway-role"  # Role name without prefix
+  irsaConfigKey: RETRIEVAL_GATEWAY_ROLE_ARN
+
+
+
+# Agent secret configuration for external secrets
+agentSecret:
+  configKey: "AGENT_LITELLM_SECRET_ARN"

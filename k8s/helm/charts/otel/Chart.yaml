@@ -1,0 +1,8 @@
+apiVersion: v2
+name: otel-collector
+description: OpenTelemetry Collector with AWS OpenSearch integration
+type: application
+version: 0.1.0
+appVersion: "0.88.0"
+maintainers:
+  - name: platform team.

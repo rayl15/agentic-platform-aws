@@ -1,0 +1,64 @@
+model_list:
+  - model_name: anthropic.claude-sonnet-4-20250514-v1:0
+    litellm_params:
+      model: bedrock/converse/us.anthropic.claude-sonnet-4-20250514-v1:0
+      api_key: os.environ/AWS_BEARER_TOKEN_BEDROCK
+
+  - model_name: anthropic.claude-sonnet-4-5-20250929-v1:0
+    litellm_params:
+      model: bedrock/converse/us.anthropic.claude-sonnet-4-5-20250929-v1:0
+      api_key: os.environ/AWS_BEARER_TOKEN_BEDROCK
+  
+  - model_name: anthropic.claude-haiku-4-5-20251001-v1:0
+    litellm_params:
+      model: bedrock/converse/us.anthropic.claude-haiku-4-5-20251001-v1:0
+      api_key: os.environ/AWS_BEARER_TOKEN_BEDROCK
+
+  - model_name: us.anthropic.claude-3-5-sonnet-20241022-v2:0
+    litellm_params:
+      model: bedrock/converse/us.anthropic.claude-3-5-sonnet-20241022-v2:0
+
+  - model_name: us.anthropic.claude-3-5-haiku-20241022-v1:0
+    litellm_params:
+      model: bedrock/converse/us.anthropic.claude-3-5-haiku-20241022-v1:0
+
+  - model_name: us.anthropic.claude-3-haiku-20240307-v1:0
+    litellm_params:
+      model: bedrock/us.anthropic.claude-3-haiku-20240307-v1:0
+
+  - model_name: us.amazon.nova-pro-v1:0
+    litellm_params:
+      model: bedrock/converse/us.amazon.nova-pro-v1:0
+
+  - model_name: us.amazon.nova-lite-v1:0
+    litellm_params:
+      model: bedrock/converse/us.amazon.nova-lite-v1:0
+
+  - model_name: us.amazon.nova-micro-v1:0
+    litellm_params:
+      model: bedrock/converse/us.amazon.nova-micro-v1:0
+
+  - model_name: us.meta.llama3-3-70b-instruct-v1:0
+    litellm_params:
+      model: bedrock/converse/us.meta.llama3-3-70b-instruct-v1:0
+
+  - model_name: us.anthropic.claude-3-5-sonnet-20241022-v2:0
+    litellm_params:
+      model: bedrock/converse/us.anthropic.claude-3-5-sonnet-20241022-v2:0
+
+  - model_name: us.anthropic.claude-3-7-sonnet-20250219-v1:0
+    litellm_params:
+      model: bedrock/converse/us.anthropic.claude-3-7-sonnet-20250219-v1:0
+
+  - model_name: amazon.titan-embed-text-v2:0
+    litellm_params:
+      model: bedrock/amazon.titan-embed-text-v2:0
+  
+general_settings:
+  ui: true
+  master_key: os.environ/LITELLM_MASTER_KEY
+
+router_settings:
+  redis_host: redis
+  redis_password: redis
+  redis_port: 6379

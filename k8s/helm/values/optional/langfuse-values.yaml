@@ -1,0 +1,159 @@
+# Langfuse Configuration with Kubernetes Secrets - TESTING CONFIGURATION
+# WARNING: This configuration uses minimal resources and is NOT suitable for production
+langfuse:
+  # Use secret references for sensitive data
+  salt:
+    secretKeyRef:
+      name: langfuse-general
+      key: salt
+  
+  nextauth:
+    secret:
+      secretKeyRef:
+        name: langfuse-general
+        key: nextauth-secret
+  
+  encryptionKey:
+    secretKeyRef:
+      name: langfuse-general
+      key: encryption-key
+  
+  # Minimal resource configuration for testing
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+    requests:
+      cpu: "200m"
+      memory: "512Mi"
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 3000
+  
+  # Ingress configuration
+  ingress:
+    enabled: true
+    className: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internal
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+      # alb.ingress.kubernetes.io/ssl-redirect: '443'  # Uncomment for HTTPS redirect
+      # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/cert-id  # Add your cert ARN
+      alb.ingress.kubernetes.io/healthcheck-path: /api/public/health
+      alb.ingress.kubernetes.io/group.name: platform
+      alb.ingress.kubernetes.io/success-codes: '200'
+      alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+      alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+      alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+    hosts:
+      - host: ""  # Leave empty for ALB DNS name or set your internal domain
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      enabled: false
+
+# PostgreSQL Configuration - Minimal for testing
+postgresql:
+  auth:
+    username: langfuse
+    database: postgres_langfuse      # Match what Langfuse expects
+    existingSecret: langfuse-postgresql-auth
+    secretKeys:
+      adminPasswordKey: password      # Override default "postgres-password" 
+      userPasswordKey: password       # This is already the default, but being explicit
+      replicationPasswordKey: password # Override default "replication-password"
+  
+  # Minimal resource configuration
+  primary:
+    resources:
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+      requests:
+        cpu: "200m"
+        memory: "512Mi"
+    
+    persistence:
+      enabled: true
+      size: 5Gi
+
+# ClickHouse Configuration - Minimal for testing
+clickhouse:
+  auth:
+    existingSecret: langfuse-clickhouse-auth
+    existingSecretKey: password
+  
+  # Minimal resource configuration
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "2Gi"
+    requests:
+      cpu: "300m"
+      memory: "1Gi"
+  
+  keeper:
+    resources:
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+  
+  persistence:
+    enabled: true
+    size: 10Gi
+
+# Redis Configuration - Minimal for testing
+redis:
+  auth:
+    existingSecret: langfuse-redis-auth
+    existingSecretPasswordKey: password
+  
+  # Minimal resource configuration
+  primary:
+    resources:
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+    
+    persistence:
+      enabled: true
+      size: 2Gi
+
+# S3/MinIO Configuration - Minimal for testing
+s3:
+  auth:
+    existingSecret: langfuse-s3-auth
+    rootUserSecretKey: rootUser
+    rootPasswordSecretKey: rootPassword
+  
+  # Minimal resource configuration
+  resources:
+    limits:
+      cpu: "200m"
+      memory: "512Mi"
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+  
+  persistence:
+    enabled: true
+    size: 10Gi
+
+# Feature flags
+features:
+  # -- Whether or not to report basic usage statistics to a centralized server.
+  telemetryEnabled: false  # Changed from true to false
+  # -- Disable public sign up
+  signUpDisabled: false
+  # -- Enable experimental features
+  experimentalFeaturesEnabled: false 

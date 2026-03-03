@@ -1,0 +1,10 @@
+clusterName: "your-eks-cluster"
+region: "us-west-2"
+
+# Service account for permissions
+serviceAccount:
+  name: "otel-collector-sa"
+  roleArn: ""
+  create: true
+
+namespace: "observability"

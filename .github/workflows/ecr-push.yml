@@ -1,0 +1,262 @@
+name: Build and Push Services
+
+# Workflow is currently disabled - uncomment 'on:' section below to re-enable
+on:
+  workflow_dispatch: # This allows manual triggering only, but won't auto-trigger
+
+# on:
+#   push:
+#     branches: [ main, develop ]
+#     tags: [ 'v*' ]
+#   pull_request:
+#     branches: [ main ]
+#   workflow_dispatch:
+#     inputs:
+#       services:
+#         description: 'Services to build (comma-separated, or "all")'
+#         required: false
+#         default: 'changed'
+#         type: string
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+jobs:
+  detect-changes:
+    name: Detect Changed Services
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.set-services.outputs.services }}
+      matrix: ${{ steps.set-services.outputs.matrix }}
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        role-session-name: GitHubActions-DetectChanges-${{ github.run_id }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Auto-discover services and detect changes
+      id: set-services
+      run: |
+        # Auto-discover all services from docker directory
+        ALL_SERVICES=()
+        if [[ -d "docker" ]]; then
+          for service_dir in docker/*/; do
+            if [[ -f "$service_dir/Dockerfile" ]]; then
+              service_name=$(basename "$service_dir")
+              ALL_SERVICES+=("$service_name")
+            fi
+          done
+        fi
+        
+        # Sort for consistent output
+        ALL_SERVICES=($(printf '%s\n' "${ALL_SERVICES[@]}" | sort))
+        
+        echo "Auto-discovered services: ${ALL_SERVICES[*]}"
+        
+        CHANGED_SERVICES=()
+        MISSING_REPO_SERVICES=()
+        
+        # Check for missing ECR repositories (cold start problem)
+        echo "Checking for missing ECR repositories..."
+        for service in "${ALL_SERVICES[@]}"; do
+          ECR_REPO_NAME="agentic-platform-${service}"
+          echo "Checking repository: $ECR_REPO_NAME"
+          
+          if ! aws ecr describe-repositories --repository-names "$ECR_REPO_NAME" --region "${{ env.AWS_REGION }}" >/dev/null 2>&1; then
+            echo "❄️ Missing ECR repository for service: $service"
+            MISSING_REPO_SERVICES+=("$service")
+          else
+            echo "✅ ECR repository exists for service: $service"
+          fi
+        done
+        
+        # Handle manual trigger
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          INPUT="${{ github.event.inputs.services }}"
+          if [[ "$INPUT" == "all" ]]; then
+            CHANGED_SERVICES=("${ALL_SERVICES[@]}")
+          elif [[ "$INPUT" == "changed" ]]; then
+            # Fall through to change detection
+            INPUT=""
+          else
+            IFS=',' read -ra CHANGED_SERVICES <<< "$INPUT"
+          fi
+        fi
+        
+        # Use change detection if not manually specified
+        if [[ ${#CHANGED_SERVICES[@]} -eq 0 ]]; then
+          # Get changed files
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          else
+            if [[ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]]; then
+              # New branch or first commit
+              CHANGED_FILES=$(git diff --name-only HEAD~1 2>/dev/null || git ls-tree -r --name-only HEAD)
+            else
+              CHANGED_FILES=$(git diff --name-only ${{ github.event.before }}..${{ github.sha }})
+            fi
+          fi
+          
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          
+          # Check for core changes that affect ALL services
+          if echo "$CHANGED_FILES" | grep -E "(^|/)src/agentic_platform/core/|requirements\.txt|pyproject\.toml|package\.json|yarn\.lock" >/dev/null; then
+            echo "Core changes detected - building all services"
+            CHANGED_SERVICES=("${ALL_SERVICES[@]}")
+          else
+            # Check each discovered service for changes
+            for service in "${ALL_SERVICES[@]}"; do
+              echo "Checking service: $service"
+              
+              # Convert service name to match both hyphens and underscores
+              service_pattern=$(echo "$service" | sed 's/-/_/g')
+              service_pattern_alt=$(echo "$service" | sed 's/_/-/g')
+              
+              # Check multiple patterns separately for better debugging
+              DOCKER_MATCH=$(echo "$CHANGED_FILES" | grep "docker/${service}/" || true)
+              SERVICE_MATCH=$(echo "$CHANGED_FILES" | grep -E "src/agentic_platform/service.*(${service}|${service_pattern}|${service_pattern_alt})" || true)
+              CHAT_MATCH=$(echo "$CHANGED_FILES" | grep -E "src/agentic_platform/chat.*(${service}|${service_pattern}|${service_pattern_alt})" || true)
+              WORKFLOW_MATCH=$(echo "$CHANGED_FILES" | grep -E "src/agentic_platform/workflow.*(${service}|${service_pattern}|${service_pattern_alt})" || true)
+              AGENT_MATCH=$(echo "$CHANGED_FILES" | grep -E "src/agentic_platform/agent.*(${service}|${service_pattern}|${service_pattern_alt})" || true)
+              
+              if [[ -n "$DOCKER_MATCH" || -n "$SERVICE_MATCH" || -n "$CHAT_MATCH" || -n "$WORKFLOW_MATCH" || -n "$AGENT_MATCH" ]]; then
+                echo "✅ Changes detected for service: $service"
+                [[ -n "$DOCKER_MATCH" ]] && echo "  - Docker: $DOCKER_MATCH"
+                [[ -n "$SERVICE_MATCH" ]] && echo "  - Service: $SERVICE_MATCH"
+                [[ -n "$CHAT_MATCH" ]] && echo "  - Chat: $CHAT_MATCH"
+                [[ -n "$WORKFLOW_MATCH" ]] && echo "  - Workflow: $WORKFLOW_MATCH"
+                [[ -n "$AGENT_MATCH" ]] && echo "  - Agent: $AGENT_MATCH"
+                CHANGED_SERVICES+=("$service")
+              else
+                echo "❌ No changes for service: $service"
+              fi
+            done
+          fi
+        fi
+        
+        # Combine changed services and missing repo services
+        ALL_SERVICES_TO_BUILD=()
+        ALL_SERVICES_TO_BUILD+=("${CHANGED_SERVICES[@]}")
+        ALL_SERVICES_TO_BUILD+=("${MISSING_REPO_SERVICES[@]}")
+        
+        # Remove duplicates
+        UNIQUE_SERVICES=($(printf "%s\n" "${ALL_SERVICES_TO_BUILD[@]}" | sort -u))
+        
+        if [[ ${#UNIQUE_SERVICES[@]} -eq 0 ]]; then
+          echo "No services to build"
+          echo "services=[]" >> $GITHUB_OUTPUT
+          echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
+        else
+          echo "Services to build: ${UNIQUE_SERVICES[*]}"
+          
+          # Show reasons for building
+          echo "Build reasons:"
+          for service in "${UNIQUE_SERVICES[@]}"; do
+            REASONS=()
+            # Check if it's in changed services
+            for changed in "${CHANGED_SERVICES[@]}"; do
+              if [[ "$service" == "$changed" ]]; then
+                REASONS+=("code changes")
+                break
+              fi
+            done
+            # Check if it's in missing repo services
+            for missing in "${MISSING_REPO_SERVICES[@]}"; do
+              if [[ "$service" == "$missing" ]]; then
+                REASONS+=("missing ECR repository")
+                break
+              fi
+            done
+            echo "  - $service: ${REASONS[*]}"
+          done
+          
+          # Output as JSON - use jq to ensure proper formatting
+          SERVICES_JSON=$(printf '%s\n' "${UNIQUE_SERVICES[@]}" | jq -R . | jq -s -c .)
+          echo "services=${SERVICES_JSON}" >> $GITHUB_OUTPUT
+          
+          # Create matrix - ensure proper JSON formatting
+          MATRIX_JSON="{"
+          MATRIX_JSON+='"include":['
+          for i in "${!UNIQUE_SERVICES[@]}"; do
+            if [[ $i -gt 0 ]]; then
+              MATRIX_JSON+=","
+            fi
+            MATRIX_JSON+="{\"service\":\"${UNIQUE_SERVICES[$i]}\"}"
+          done
+          MATRIX_JSON+="]}"
+          
+          echo "matrix=${MATRIX_JSON}" >> $GITHUB_OUTPUT
+          
+          # Debug output
+          echo "Generated JSON:"
+          echo "services=${SERVICES_JSON}"
+          echo "matrix=${MATRIX_JSON}"
+        fi
+
+  build-and-push:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: fromJson(needs.detect-changes.outputs.services)[0] != null
+    
+    strategy:
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+      fail-fast: false
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        role-session-name: GitHubActions-${{ matrix.service }}-${{ github.run_id }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Build and push ${{ matrix.service }}
+      run: |
+        # Make script executable and run it
+        chmod +x ./deploy/build-container.sh
+        ./deploy/build-container.sh "${{ matrix.service }}"
+
+  summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-and-push]
+    if: always()
+    
+    steps:
+    - name: Generate summary
+      run: |
+        echo "## 🚀 Agentic Platform Build Summary" >> $GITHUB_STEP_SUMMARY
+        
+        SERVICES='${{ needs.detect-changes.outputs.services }}'
+        if [[ "$SERVICES" == "[]" || "$SERVICES" == "" ]]; then
+          echo "**No services required building** ✨" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No changes detected in service-specific files or core dependencies, and all ECR repositories exist." >> $GITHUB_STEP_SUMMARY
+        else
+          echo "**Services Built Successfully:**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '${{ needs.detect-changes.outputs.services }}' | jq -r '.[]' | while read service; do
+            echo "- 🐳 **agentic-platform-$service**: Pushed to ECR" >> $GITHUB_STEP_SUMMARY
+          done
+        fi

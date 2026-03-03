@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "litellm.fullname" . }}-config
+  namespace: {{ include "litellm.namespace" . }}
+  labels:
+    app: {{ include "litellm.name" . }}
+data:
+  config.yaml: |
+    model_list:
+      - model_name: us.anthropic.claude-sonnet-4-5-20250929-v1:0
+        litellm_params:
+          model: bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0
+
+      - model_name: us.anthropic.claude-haiku-4-5-20251001-v1:0
+        litellm_params:
+          model: bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0
+      
+      - model_name: us.anthropic.claude-3-5-sonnet-20241022-v2:0
+        litellm_params:
+          model: bedrock/us.anthropic.claude-3-5-sonnet-20241022-v2:0
+
+      - model_name: us.anthropic.claude-3-5-haiku-20241022-v1:0
+        litellm_params:
+          model: bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0
+
+      - model_name: us.anthropic.claude-3-haiku-20240307-v1:0
+        litellm_params:
+          model: bedrock/us.anthropic.claude-3-haiku-20240307-v1:0
+
+      - model_name: us.amazon.nova-pro-v1:0
+        litellm_params:
+          model: bedrock/us.amazon.nova-pro-v1:0
+
+      - model_name: us.amazon.nova-lite-v1:0
+        litellm_params:
+          model: bedrock/us.amazon.nova-lite-v1:0
+
+      - model_name: us.amazon.nova-micro-v1:0
+        litellm_params:
+          model: bedrock/us.amazon.nova-micro-v1:0
+
+      - model_name: us.meta.llama3-3-70b-instruct-v1:0
+        litellm_params:
+          model: bedrock/us.meta.llama3-3-70b-instruct-v1:0
+
+      - model_name: us.anthropic.claude-3-5-sonnet-20241022-v2:0
+        litellm_params:
+          model: bedrock/us.anthropic.claude-3-5-sonnet-20241022-v2:0
+
+      - model_name: us.anthropic.claude-3-7-sonnet-20250219-v1:0
+        litellm_params:
+          model: bedrock/converse/us.anthropic.claude-3-7-sonnet-20250219-v1:0
+
+      - model_name: amazon.titan-embed-text-v2:0
+        litellm_params:
+          model: bedrock/amazon.titan-embed-text-v2:0
+
+      # Aliases for agent default models
+      - model_name: anthropic.claude-sonnet-4-20250514-v1:0
+        litellm_params:
+          model: bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0
+
+    general_settings:
+      ui: {{ .Values.litellm.ui }}
+      master_key: os.environ/LITELLM_MASTER_KEY
+      # Health check settings - disable auth for health endpoints
+      health_check_details: false
+      disable_spend_logs: true
+      # Allow public access to health endpoints
+      public_routes: ["/health", "/health/livenessz", "/health/readiness"]
+      
+    # Health check configuration
+    health_check:
+      enable_health_check: true
+      health_check_interval: 30
+
+    router_settings:
+      redis_host: os.environ/REDIS_HOST
+      redis_password: os.environ/REDIS_PASSWORD
+      redis_port: os.environ/REDIS_PORT

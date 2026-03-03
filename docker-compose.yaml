@@ -1,0 +1,99 @@
+# nosemgrep
+
+# This docker-compose file is for local development purposes only
+# It should not be deployed in any way shape or form into your account.
+
+services:
+  postgres:  # Service name
+    # If you don't use this image, you have to create the docker build yourself which is not fun..
+    image: pgvector/pgvector:pg16 
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: dev   # Password for the PostgreSQL user
+      POSTGRES_USER: dev  # Username for PostgreSQL
+      POSTGRES_DB: devdb  # Database name to create
+    ports:
+      - "5432:5432"  # Map host port to container port
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # Persist database data
+    security_opt:
+      - no-new-privileges:true
+    # read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --save 60 1 --loglevel warning --requirepass redis
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Lite LLM Gateway
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./src/agentic_platform/service/litellm_gateway/litellm_config.yaml:/app/config.yaml
+      - ${HOME}/.aws:/home/appuser/.aws:ro
+    env_file:
+      - .env
+    environment:
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+      - DATABASE_URL=${LITELLM_DATABASE_URL}
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    depends_on:
+      - postgres
+      - redis
+
+  # Memory Gateway Service
+  memory-gateway:
+    build:
+      context: .
+      dockerfile: docker/memory-gateway/Dockerfile
+    ports:
+      - "4001:8000"
+    env_file:
+      - .env
+    environment:
+      # Override specific values for local Docker setup
+      - PG_CONNECTION_URL=postgres:5432
+    volumes:
+      # Mount AWS credentials and config for automatic credential discovery
+      - ${HOME}/.aws:/home/appuser/.aws:ro
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # # Retrieval Gateway Service
+  # retrieval-gateway:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/retrieval-gateway/Dockerfile
+  #   ports:
+  #     - "4002:8000"
+  #   env_file:
+  #     - tests/integ/.env.retrieval-gateway
+  #   volumes:
+  #     # Mount AWS credentials and config for automatic credential discovery
+  #     - ${HOME}/.aws:/home/appuser/.aws:ro
+  #   restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

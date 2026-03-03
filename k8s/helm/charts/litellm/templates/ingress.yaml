@@ -1,0 +1,36 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "litellm.fullname" . }}
+  namespace: {{ include "litellm.namespace" . }}
+  labels:
+    app: {{ include "litellm.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    # alb.ingress.kubernetes.io/ssl-redirect: '443'  # Uncomment for HTTPS redirect
+    # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/cert-id  # Add your cert ARN
+    alb.ingress.kubernetes.io/healthcheck-path: /health/liveliness
+    alb.ingress.kubernetes.io/group.name: platform
+    alb.ingress.kubernetes.io/success-codes: '200'
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /api{{ .Values.ingress.path | default "/api/v1" }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "litellm.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+{{- end }}

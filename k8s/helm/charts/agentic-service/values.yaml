@@ -1,0 +1,68 @@
+# Default values for langraph-chat.
+# This is a YAML-formatted file.
+
+# Specify the namespace where this service will be deployed
+# Leave empty to use the namespace specified in the helm command
+namespace: "default"
+
+# Replica count for scaling
+replicaCount: 1
+
+aws:
+  region: ""
+  account: ""
+
+# Container image
+image:
+  repository: ""
+  tag: latest
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+env:
+  - name: PYTHONPATH
+    value: /app
+
+# Resource allocation
+resources:
+  requests:
+    cpu: 100m      # 0.1 CPU core (10% of a core)
+    memory: 256Mi  # 256 megabytes
+  limits:
+    memory: 512Mi  # 512 megabytes
+
+# Ingress configuration
+ingress:
+  enabled: false
+  path: ""
+
+# Service account for permissions
+serviceAccount:
+  name: ""
+  create: true
+  irsaConfigKey: "AGENT_ROLE_ARN"
+
+# Default / empty role for the agents.
+irsaConfigKey: AGENT_ROLE_ARN
+
+# Agent secret configuration - can be set directly or pulled from config map
+agentSecret:
+  # Option 1: Set the secret ARN directly
+  arn: ""
+  # Option 2: Use a config key from the central config map (recommended)
+  configKey: "AGENT_LITELLM_SECRET_ARN"
+
+# Specify which keys this service needs from the central config
+
+# Default values if keys aren't found in central config
+configDefaults:
+  LLM_GATEWAY_ENDPOINT: "http://llm-gateway.default.svc.cluster.local:80"
+  RETRIEVAL_GATEWAY_ENDPOINT: "http://retrieval-gateway.default.svc.cluster.local:80"
+  MEMORY_GATEWAY_ENDPOINT: "http://memory-gateway.default.svc.cluster.local:80"
