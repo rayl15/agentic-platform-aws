@@ -53,10 +53,10 @@ make install
 ### 4. Configure Environment
 
 ```bash
-cp .env.example .env
+make setup-env
 ```
 
-Edit `.env` and set your AWS region (ensure Bedrock is enabled):
+This creates `.env` at the repo root and a `.env` for each agent from the shipped `.env.example` templates. Edit the root `.env` to set your AWS region if Bedrock is enabled elsewhere:
 ```
 AWS_REGION=us-east-1
 ```
@@ -64,15 +64,20 @@ AWS_REGION=us-east-1
 ### 5. Run Your First Agent
 
 ```bash
-make dev agentic_chat
+make dev-agentic-chat
 ```
 
 ### 6. Test It
 
+> The lesson 1.2 video shows a simplified conceptual payload. The actual API uses structured content blocks — the same schema you'll see in the deployed demo (Lesson 8.1) and multi-agent labs.
+
 ```bash
 curl -X POST http://localhost:8080/invoke \
   -H "Content-Type: application/json" \
-  -d '{"message": "Hello, who are you?"}'
+  -d '{
+    "message": {"role": "user", "content": [{"type": "text", "text": "Hello, who are you?"}]},
+    "session_id": "local-dev"
+  }'
 ```
 
 You should see a JSON response from the agent.

@@ -45,6 +45,15 @@ help:
 install:
 	uv sync
 
+# Copy .env.example → .env for repo root and every agent that ships one
+setup-env:
+	@if [ ! -f .env ] && [ -f .env.example ]; then cp .env.example .env && echo "✓ created .env"; else echo "  .env exists or no template, skipping root"; fi
+	@for d in src/agentic_platform/agent/*/; do \
+		if [ -f "$$d.env.example" ] && [ ! -f "$$d.env" ]; then \
+			cp "$$d.env.example" "$$d.env" && echo "✓ created $$d.env"; \
+		fi; \
+	done
+
 test:
 	uv run pytest
 
@@ -70,6 +79,12 @@ dev:
 	@if [ -z "$(NAME)" ]; then echo "Usage: make dev <name>"; exit 1; fi
 	cd src && uv run --env-file agentic_platform/agent/$(NAME)/.env -- \
 		uvicorn agentic_platform.agent.$(NAME).server:app --reload --port $(PORT)
+
+# Dashed aliases matching the course lesson 1.2 demo: make dev-agentic-chat
+dev-%:
+	@name=$$(echo $* | tr '-' '_'); \
+	cd src && uv run --env-file agentic_platform/agent/$$name/.env -- \
+		uvicorn agentic_platform.agent.$$name.server:app --reload --port $(PORT)
 
 # make dev:mcp bedrock_kb_mcp_server
 dev\:mcp:
